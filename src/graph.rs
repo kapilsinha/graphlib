@@ -64,7 +64,7 @@ pub struct Graph<T> {
     vertices: HashMap<VertexId, (T, VertexId)>,
 
     /// Mapping between edges and weights
-    edges: HashMap<Edge, f32>,
+    edges: HashMap<Edge, i32>,
 
     /// Set containing the roots of the graph
     roots: HashSet<VertexId>,
@@ -306,7 +306,7 @@ impl<T> Graph<T> {
             return Ok(());
         }
 
-        self.do_add_edge(a, b, 0.0, false)
+        self.do_add_edge(a, b, 0, false)
     }
 
     /// Attempts to place a new edge in the graph, checking if the specified
@@ -340,7 +340,7 @@ impl<T> Graph<T> {
             return Ok(());
         }
 
-        self.do_add_edge(a, b, 0.0, true)
+        self.do_add_edge(a, b, 0, true)
     }
 
     /// Attempts to place a new edge in the graph.
@@ -358,23 +358,23 @@ impl<T> Graph<T> {
     /// let v2 = graph.add_vertex(2);
     ///
     /// // Adding an edge is idempotent
-    /// graph.add_edge_with_weight(&v1, &v2, 0.3);
+    /// graph.add_edge_with_weight(&v1, &v2, 0);
     ///
     /// // Fails on adding an edge between an
     /// // existing vertex and a non-existing one.
-    /// assert_eq!(graph.weight(&v1, &v2), Some(0.3));
+    /// assert_eq!(graph.weight(&v1, &v2), Some(0));
     /// ```
     pub fn add_edge_with_weight(
         &mut self,
         a: &VertexId,
         b: &VertexId,
-        weight: f32,
+        weight: i32,
     ) -> Result<(), GraphErr> {
         if self.has_edge(a, b) {
             return Ok(());
         }
 
-        if weight > 1.0 || weight < -1.0 {
+        if weight != 0 {
             return Err(GraphErr::InvalidWeight);
         }
 
@@ -397,12 +397,12 @@ impl<T> Graph<T> {
     /// let v3 = graph.add_vertex(3);
     ///
     /// // Adding an edge is idempotent
-    /// graph.add_edge_with_weight(&v1, &v2, 0.54543);
+    /// graph.add_edge_with_weight(&v1, &v2, 0);
     ///
-    /// assert_eq!(graph.weight(&v1, &v2), Some(0.54543));
+    /// assert_eq!(graph.weight(&v1, &v2), Some(0));
     /// assert_eq!(graph.weight(&v1, &v3), None);
     /// ```
-    pub fn weight(&self, a: &VertexId, b: &VertexId) -> Option<f32> {
+    pub fn weight(&self, a: &VertexId, b: &VertexId) -> Option<i32> {
         if !self.has_edge(a, b) {
             return None;
         }
@@ -431,24 +431,24 @@ impl<T> Graph<T> {
     /// let v2 = graph.add_vertex(2);
     /// let v3 = graph.add_vertex(3);
     ///
-    /// graph.add_edge_with_weight(&v1, &v2, 0.54543);
-    /// assert_eq!(graph.weight(&v1, &v2), Some(0.54543));
+    /// graph.add_edge_with_weight(&v1, &v2, 0);
+    /// assert_eq!(graph.weight(&v1, &v2), Some(0));
     ///
     /// // Set new weight
-    /// graph.set_weight(&v1, &v2, 0.123).unwrap();
-    /// assert_eq!(graph.weight(&v1, &v2), Some(0.123));
+    /// graph.set_weight(&v1, &v2, 0).unwrap();
+    /// assert_eq!(graph.weight(&v1, &v2), Some(0));
     /// ```
     pub fn set_weight(
         &mut self,
         a: &VertexId,
         b: &VertexId,
-        new_weight: f32,
+        new_weight: i32,
     ) -> Result<(), GraphErr> {
         if !self.has_edge(a, b) {
             return Err(GraphErr::NoSuchEdge);
         }
 
-        if new_weight > 1.0 || new_weight < -1.0 {
+        if new_weight != 0 {
             return Err(GraphErr::InvalidWeight);
         }
 
@@ -1258,51 +1258,6 @@ impl<T> Graph<T> {
         Topo::new(self)
     }
 
-    /// Returns an iterator over the shortest path from the source
-    /// vertex to the destination vertex. The iterator will yield
-    /// `None` if there is no such path or the provided vertex ids
-    /// do not belong to any vertices in the graph.
-    /// ## Example
-    /// ```rust
-    /// #[macro_use] extern crate graphlib;
-    /// use graphlib::Graph;
-    /// use std::collections::HashSet;
-    ///
-    /// let mut graph: Graph<usize> = Graph::new();
-    ///
-    /// let v1 = graph.add_vertex(1);
-    /// let v2 = graph.add_vertex(2);
-    /// let v3 = graph.add_vertex(3);
-    /// let v4 = graph.add_vertex(4);
-    /// let v5 = graph.add_vertex(5);
-    /// let v6 = graph.add_vertex(6);
-    ///
-    /// graph.add_edge(&v1, &v2).unwrap();
-    /// graph.add_edge(&v2, &v3).unwrap();
-    /// graph.add_edge(&v3, &v4).unwrap();
-    /// graph.add_edge(&v3, &v5).unwrap();
-    /// graph.add_edge(&v5, &v6).unwrap();
-    /// graph.add_edge(&v6, &v4).unwrap();
-    ///
-    /// let mut dijkstra = graph.dijkstra(&v1, &v4);
-    ///
-    /// assert_eq!(dijkstra.next(), Some(&v1));
-    /// assert_eq!(dijkstra.next(), Some(&v2));
-    /// assert_eq!(dijkstra.next(), Some(&v3));
-    /// assert_eq!(dijkstra.next(), Some(&v4));
-    /// assert_eq!(dijkstra.next(), None);
-    /// ```
-    pub fn dijkstra<'a>(&'a self, src: &'a VertexId, dest: &'a VertexId) -> VertexIter<'a> {
-        if let Some(dijkstra) = Dijkstra::new(&self, src).ok() {
-            if let Some(iter) = dijkstra.get_path_to(dest).ok() {
-                iter
-            } else {
-                VertexIter(Box::new(iter::empty()))
-            }
-        } else {
-            VertexIter(Box::new(iter::empty()))
-        }
-    }
 
     /// Returns an iterator over the values of the vertices
     /// placed in the graph.
@@ -1574,7 +1529,7 @@ impl<T> Graph<T> {
         &mut self,
         a: &VertexId,
         b: &VertexId,
-        weight: f32,
+        weight: i32,
         check_cycle: bool,
     ) -> Result<(), GraphErr> {
         let id_ptr1 = if self.vertices.get(a).is_some() {
@@ -1651,7 +1606,7 @@ impl<T> Graph<T> {
     }
 
     fn sort_outbounds(&self, inbound: VertexId, outbounds: &mut Vec<VertexId>) {
-        let outbound_weights: HashMap<VertexId, f32> = outbounds
+        let outbound_weights: HashMap<VertexId, i32> = outbounds
             .iter()
             .map(|id| (*id, *self.edges.get(&Edge::new(inbound, *id)).unwrap()))
             .collect();
@@ -1667,16 +1622,16 @@ impl<T> Graph<T> {
                     a_weight.partial_cmp(&b_weight).unwrap_or_else(|| a.cmp(b))
                 }
                 (Some(weight), None) => {
-                    if weight != 0.00 {
-                        weight.partial_cmp(&0.00).unwrap_or_else(|| a.cmp(b))
+                    if weight != 0 {
+                        weight.partial_cmp(&0).unwrap_or_else(|| a.cmp(b))
                     } else {
                         // Fallback to lexicographic sort
                         a.cmp(b)
                     }
                 }
                 (None, Some(weight)) => {
-                    if weight != 0.00 {
-                        weight.partial_cmp(&0.00).unwrap_or_else(|| a.cmp(b))
+                    if weight != 0 {
+                        weight.partial_cmp(&0).unwrap_or_else(|| a.cmp(b))
                     } else {
                         // Fallback to lexicographic sort
                         a.cmp(b)
@@ -1727,22 +1682,22 @@ mod tests {
         let v6 = graph.add_vertex(5);
         let v7 = graph.add_vertex(6);
 
-        graph.add_edge_with_weight(&v1, &v2, -0.23).unwrap();
+        graph.add_edge_with_weight(&v1, &v2, 0).unwrap();
         graph.add_edge(&v3, &v1).unwrap();
-        graph.add_edge_with_weight(&v1, &v4, -0.56).unwrap();
-        graph.add_edge_with_weight(&v1, &v5, 0.44).unwrap();
+        graph.add_edge_with_weight(&v1, &v4, 0).unwrap();
+        graph.add_edge_with_weight(&v1, &v5, 0).unwrap();
         graph.add_edge(&v5, &v6).unwrap();
         graph.add_edge(&v5, &v7).unwrap();
 
-        graph.set_weight(&v5, &v6, 0.23).unwrap();
-        graph.set_weight(&v5, &v7, 0.33).unwrap();
+        graph.set_weight(&v5, &v6, 0).unwrap();
+        graph.set_weight(&v5, &v7, 0).unwrap();
 
         let mut dfs = graph.dfs();
 
         assert_eq!(dfs.next(), Some(&v3));
         assert_eq!(dfs.next(), Some(&v1));
-        assert_eq!(dfs.next(), Some(&v4));
         assert_eq!(dfs.next(), Some(&v2));
+        assert_eq!(dfs.next(), Some(&v4));
         assert_eq!(dfs.next(), Some(&v5));
         assert_eq!(dfs.next(), Some(&v6));
         assert_eq!(dfs.next(), Some(&v7));
